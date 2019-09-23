@@ -43,6 +43,9 @@ data["LRank"]=data["LRank"].astype(int)
 data["Wsets"]=data["Wsets"].astype(float)
 data["Lsets"]=data["Lsets"].replace("`1",1)
 data["Lsets"]=data["Lsets"].astype(float)
+data["Winner"]= data["Winner"].apply(lambda x: x.strip())
+data["Loser"] = data["Loser"].apply(lambda x: x.strip())
+
 data=data.reset_index(drop=True)
 
 ### Elo rankings data
@@ -61,12 +64,12 @@ data.to_csv("../Generated Data/atp_data.csv",index=False)
 ### We'll add some features to the dataset
 
 data=pd.read_csv("../Generated Data/atp_data.csv")
-data.Date = data.Date.apply(lambda x:datetime.strptime(x, '%Y-%m-%d'))
+data.Date = data.Date.apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
 
 
 ######################### The period that interests us #########################
 
-beg = datetime(2008,1,1) 
+beg = datetime.datetime(2008,1,1)
 end = data.Date.iloc[-1]
 indices = data[(data.Date>beg)&(data.Date<=end)].index
 
@@ -76,14 +79,14 @@ features_player  = features_past_generation(features_player_creation,5,"playerft
 features_duo     = features_past_generation(features_duo_creation,150,"duoft",data,indices)
 features_general = features_past_generation(features_general_creation,150,"generalft",data,indices)
 features_recent  = features_past_generation(features_recent_creation,150,"recentft",data,indices)
-#dump(player_features,"player_features")
-#dump(duo_features,"duo_features")
-#dump(general_features,"general_features")
-#dump(recent_features,"recent_features")
-features_player=load("player_features")
-features_duo=load("duo_features")
-features_general=load("general_features")
-features_recent=load("recent_features")
+# dump(player_features,"player_features")
+# dump(duo_features,"duo_features")
+# dump(general_features,"general_features")
+# dump(recent_features,"recent_features")
+# features_player=load("player_features")
+# features_duo=load("duo_features")
+# features_general=load("general_features")
+# features_recent=load("recent_features")
 
 ########################### Selection of our period ############################
 
@@ -148,7 +151,7 @@ features.to_csv("../Generated Data/atp_data_features.csv",index=False)
 ######################### Confidence computing for each match ############################
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
-start_date=datetime(2013,1,1) #first day of testing set
+start_date=datetime.datetime(2013,1,1) #first day of testing set
 test_beginning_match=data[data.Date==start_date].index[0] #id of the first match of the testing set
 span_matches=len(data)-test_beginning_match+1
 duration_val_matches=300

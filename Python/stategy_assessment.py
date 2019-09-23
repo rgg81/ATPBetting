@@ -4,27 +4,150 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import xgboost as xgb
+import random
 import seaborn as sns
 
 ############################### STRATEGY ASSESSMENT ############################
 ### the following functions are used to make the predictions and compute the ROI
 
-def xgbModelBinary(xtrain,ytrain,xval,yval,p,sample_weights=None):
+# list_thresholds =  [0.7, 0.5, 0.3, 0.15, 0.1, 0.05, 0.02]
+# list_thresholds =  [(0.05,0.10),(0.04,0.10),(0.03,0.10),(0.02,0.10)]
+# list_thresholds =  [0.09]
+
+def find_max_profit_threshold(xtrain, xval, xtest, preds, labels, list_thresholds):
+    # labels = dm.get_label()
+
+    if len(labels) == len(xtrain):
+        odds = xtrain['odds']
+    elif len(labels) == len(xval):
+        odds = xval['odds']
+    else:
+        odds = xtest['odds']
+
+    odds_filtered = ~np.isnan(odds)
+    odds = odds[odds_filtered]
+
+    labels_filtered = labels[odds_filtered]
+    preds_filtered = preds[odds_filtered]
+
+    preds_sorted = np.copy(preds_filtered)
+    preds_sorted.sort()
+
+    profits = []
+
+    for percent,max_threshold in list_thresholds:
+        min_threshold = preds_sorted[-int(percent*len(preds_sorted))]
+
+        # preds_cod = preds_filtered > threshold
+
+        preds_cod = (min_threshold < preds_filtered) & (preds_filtered < min_threshold + max_threshold)
+
+
+
+        labels__bet = labels_filtered[preds_cod]
+        odds_bet = odds[preds_cod]
+
+        labels_bet_good = labels__bet == 1
+        odds_bet_good = odds_bet[labels_bet_good]
+
+        number_matches_we_bet_on = len(labels__bet)
+
+        if number_matches_we_bet_on > 0:
+
+            profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)/number_matches_we_bet_on
+        else:
+            profit=0
+        threshold = min_threshold,max_threshold
+        profits.append((profit,threshold))
+    return max(profits, key=lambda item: item[0])
+
+def find_profit_threshold(features, preds, labels, threshold):
+    # labels = dm.get_label()
+
+    odds = features['odds']
+    min_threshold,max_threshold = threshold
+
+    odds_filtered = ~np.isnan(odds)
+    odds = odds[odds_filtered]
+
+    labels_filtered = labels[odds_filtered]
+    preds_filtered = preds[odds_filtered]
+
+    preds_sorted = np.copy(preds_filtered)
+    preds_sorted.sort()
+
+    # preds_cod = preds_filtered > threshold
+    preds_cod = (min_threshold < preds_filtered) & (preds_filtered < min_threshold + max_threshold)
+
+    labels__bet = labels_filtered[preds_cod]
+    odds_bet = odds[preds_cod]
+
+    labels_bet_good = labels__bet == 1
+    odds_bet_good = odds_bet[labels_bet_good]
+
+    number_matches_we_bet_on = len(labels__bet)
+
+    if number_matches_we_bet_on > 0:
+
+        profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)/number_matches_we_bet_on
+    else:
+        profit=0
+
+    return profit,number_matches_we_bet_on
+
+
+def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, list_thresholds, sample_weights=None):
     """
     XGB model training. 
     Early stopping is performed using xval and yval (validation set).
     Outputs the trained model, and the prediction on the validation set
+
     """
-    if sample_weights==None:
-        dtrain=xgb.DMatrix(xtrain,label=ytrain)
-    else:
-        dtrain=xgb.DMatrix(xtrain,label=ytrain,weight=sample_weights)
+
+    def feval(preds, dm):
+    # binary classes
+        labels = dm.get_label()
+
+        profits,thresholds = find_max_profit_threshold(xtrain,xval,xtest,preds,labels, list_thresholds)
+
+        # from sklearn.metrics import roc_auc_score
+        # auc = roc_auc_score(labels, preds)
+        return [('my_auc', profits)]
+
+
+
+    # if sample_weights==None:
+    #     dtrain=xgb.DMatrix(xtrain,label=ytrain)
+    # else:
+    #     dtrain=xgb.DMatrix(xtrain,label=ytrain,weight=sample_weights)
+
+    even_row = xtrain.index % 2 == 0
+    # print(even_row)
+    weights = xtrain['odds'].fillna(0)
+
+    # print(weights[0:10])
+    weights[~even_row] = 1
+    weights[even_row] = 10 * weights[even_row]
+    # print(len(weights))
+    # print(weights[0:10])
+    # print(ytrain[0:10])
+
+
+    dtrain=xgb.DMatrix(xtrain,label=ytrain,weight=weights)
+    # dtrain=xgb.DMatrix(xtrain,label=ytrain)
     dval=xgb.DMatrix(xval,label=yval)
-    eval_set = [(dtrain,"train_loss"),(dval, 'eval')]
-    params={'eval_metric':"logloss","objective":"binary:logistic",'subsample':0.8,
-            'min_child_weight':p[2],'alpha':p[6],'lambda':p[5],'max_depth':int(p[1]),
-            'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
-    model=xgb.train(params, dtrain, int(p[7]),evals=eval_set,early_stopping_rounds=int(p[8]))
+
+    dtest=xgb.DMatrix(xtest,label=ytest)
+    eval_set = [(dtrain,"train"), (dtest, 'test'), (dval, 'validation')]
+    # params={"objective":"binary:logistic",'subsample':0.8,
+    #         'min_child_weight':p[2],'alpha':p[6],'lambda':p[5],'max_depth':int(p[1]),
+    #         'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
+    # model=xgb.train(params, dtrain, int(p[7]), feval=feval, maximize=True, evals=eval_set,early_stopping_rounds=int(p[8]))
+
+    params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
+            'colsample_bytree':p[4], 'eta': p[0]}
+    print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
+    model=xgb.train(params, dtrain, 99999, feval=feval, maximize=True, evals=eval_set, early_stopping_rounds=p[5], evals_result=evals_result)
     return model
 
 
@@ -37,6 +160,7 @@ def assessStrategyGlobal(test_beginning_match,
                          nb_tournaments,
                          features,
                          data,
+                         list_thresholds,
                          model_name="0"):
     """
     Given the id of the first match of the testing set (id=index in the dataframe "data"),
@@ -62,6 +186,8 @@ def assessStrategyGlobal(test_beginning_match,
     train_indices=range(2*beg_train,2*end_train+2)
     val_indices=range(2*beg_val,2*end_val+2)
     test_indices=range(2*beg_test,2*end_test+2)
+
+    print('train indices:{} {} val:{} {} teste:{} {}'.format(train_indices[0],train_indices[-1],val_indices[0],val_indices[-1],test_indices[0],test_indices[-1]))
     
     if (len(test_indices)==0)|(len(train_indices)==0):
         return 0
@@ -72,6 +198,7 @@ def assessStrategyGlobal(test_beginning_match,
     xtrain=features.iloc[train_indices,:].reset_index(drop=True)
     ytrain=pd.Series([1,0]*int(len(train_indices)/2))
     yval=pd.Series([1,0]*int(len(val_indices)/2))
+    ytest=pd.Series([1,0]*int(len(test_indices)/2))
     
     # We limit the number of players and tournaments one-hot encoded : we'll keep only the 
     # players that won the most matches to avoid overfitting and make the process quicker
@@ -90,44 +217,44 @@ def assessStrategyGlobal(test_beginning_match,
     xtrain=xtrain.drop(to_drop_players+to_drop_tournaments,1)
     xval=xval.drop(to_drop_players+to_drop_tournaments,1)
     xtest=xtest.drop(to_drop_players+to_drop_tournaments,1)
+
+    evals_result = {}
     
     ### ML model training
-    model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
+
+    # print(len(xtrain.columns))
+    # for aColumn in xtrain.columns:
+    #     print(aColumn)
+
+    model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
-    pred_test= model.predict(xgb.DMatrix(xtest,label=None)) 
-    # For each match, the winning probability the model gave to the players that won (should be high...) :
-    prediction_test_winner=pred_test[range(0,len(pred_test),2)]
-    # For each match, the winning probability the model gave to the players that lost (should be low...) :
-    prediction_test_loser=pred_test[range(1,len(pred_test),2)]
-    
-    ### Odds and predicted probabilities for the testing set (1 row/match)
-    odds=data[["PSW","PSL"]].iloc[range(beg_test,end_test+1)]
-    implied_probabilities=1/odds
-    p=pd.Series(list(zip(prediction_test_winner,prediction_test_loser,implied_probabilities.PSW,implied_probabilities.PSL)))
+    pred_val= model.predict(xgb.DMatrix(xval,label=None), ntree_limit=model.best_ntree_limit)
+    pred_test= model.predict(xgb.DMatrix(xtest,label=None), ntree_limit=model.best_ntree_limit)
 
-    ### For each match in the testing set, if the model predicted the right winner :
-    right=(prediction_test_winner>prediction_test_loser).astype(int)
-    ### For each match in the testing set, the confidence of the model in the outcome it chose
-    def sel_match_confidence(x):
-        if x[0]>x[1]:
-            return x[0]/x[2] 
-        else:
-            return x[1]/x[3] 
-    confidence=p.apply(lambda x:sel_match_confidence(x))
-    
-    ### The final confidence dataset 
-    confidenceTest=pd.DataFrame({"match":range(beg_test,end_test+1),
-                                 "win"+model_name:right,
-                                 "confidence"+model_name:confidence,
-                                 "PSW":odds.PSW.values})
-    confidenceTest=confidenceTest.sort_values("confidence"+model_name,ascending=False).reset_index(drop=True)
-    
-    return confidenceTest
+    max_profit,threshold = find_max_profit_threshold(xtrain,xval,xtest,pred_val,yval, list_thresholds)
 
-def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data):
+    max_profit_test,threshold_test = find_max_profit_threshold(xtrain,xval,xtest,pred_test,ytest, list_thresholds)
+
+
+
+
+
+    profit_test,total_matches_bet = find_profit_threshold(xtest,pred_test,ytest,threshold)
+    profit_test_check,total_matches_bet_check = find_profit_threshold(xtest,pred_test,ytest,threshold_test)
+
+    assert profit_test_check == max_profit_test
+
+
+    # pred_metric = model.evals_result()
+
+
+    
+    return profit_test,total_matches_bet,max_profit
+
+def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=5, mode='max'):
     """
-    The ROI is very sensistive to the training set. A few more matches in the training set can 
+    The ROI is very sensistive to the training set. A few more matches in the training set can
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
     with slights changes in the training set lenght, and then combine the predictions.
     This is what this function does.
@@ -136,42 +263,26 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     For each match, the final chosen outcome is the outcome chosen by the most models (majority voting)
     And the final confidence is the average of the confidences of the models that chose this outcome.
     """
-    confTest1=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"1")
-    confTest2=assessStrategyGlobal(km,dur_train-10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"2")
-    confTest3=assessStrategyGlobal(km,dur_train+10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"3")
-    confTest4=assessStrategyGlobal(km,dur_train-30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"4")
-    confTest5=assessStrategyGlobal(km,dur_train+30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"5")
-    confTest6=assessStrategyGlobal(km,dur_train-45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"6")
-    confTest7=assessStrategyGlobal(km,dur_train+45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"7")
-    if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
-        c=confTest1.merge(confTest2,on=["match","PSW"])
-        c=c.merge(confTest3,on=["match","PSW"])
-        c=c.merge(confTest4,on=["match","PSW"])
-        c=c.merge(confTest5,on=["match","PSW"])
-        c=c.merge(confTest6,on=["match","PSW"])
-        c=c.merge(confTest7,on=["match","PSW"])
-        c=pd.Series(list(zip(c.win1,c.win2,c.win3,c.win4,c.win5,
-                             c.win6,c.win7,
-                             c.confidence1,c.confidence2,c.confidence3,
-                             c.confidence4,c.confidence5,
-                             c.confidence6,c.confidence7)))
-        c=pd.DataFrame.from_records(list(c.apply(mer)))
-        conf=pd.concat([confTest1[["match","PSW"]],c],1)
-        conf.columns=["match","PSW","win0","confidence0"]
+    profits_matches = []
+    bet_value = 100
+    for a_model in range(total_models):
+        roi,total_matches_bet,max_profit=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model))
+
+        total_value = bet_value*total_matches_bet
+        profit_iter = roi/100 * total_value
+
+        print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{} MODE:{}'
+              .format(a_model, profit_iter, total_matches_bet, max_profit, mode))
+
+
+        profits_matches.append((profit_iter,total_matches_bet,max_profit))
+
+    #
+    if mode == 'max':
+        return max(profits_matches, key=lambda item:item[2])
     else:
-        conf=0
-    return conf
-def mer(t):
-    # If more than half the models choose the right outcome for the match, we can say
-    # in real situation we would have been right. Otherwise wrong.
-    # And the confidence in the chosen outcome is the mean of the confidences of the models
-    # that chose this outcome.
-    w=np.array([t[0],t[1],t[2],t[3],t[4],t[5],t[6]]).astype(bool)
-    conf=np.array([t[7],t[8],t[9],t[10],t[11],t[12],t[13]])
-    if w.sum()>=4:
-        return 1,conf[w].mean()
-    else:
-        return 0,conf[~w].mean()
+        return [sum(x) for x in zip(*profits_matches)]
+
 
 ############################### PROFITS COMPUTING AND VISUALIZATION ############
 
