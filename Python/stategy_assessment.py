@@ -225,8 +225,9 @@ def assessStrategyGlobal(test_beginning_match,
     # print(len(xtrain.columns))
     # for aColumn in xtrain.columns:
     #     print(aColumn)
-
-    model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
+    model = None
+    while model is None or model.best_ntree_limit < 5:
+        model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
     pred_val= model.predict(xgb.DMatrix(xval,label=None), ntree_limit=model.best_ntree_limit)
