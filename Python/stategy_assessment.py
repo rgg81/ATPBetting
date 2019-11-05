@@ -40,7 +40,7 @@ def find_max_profit_threshold(xtrain, xval, xtest, preds, labels, list_threshold
 
         # preds_cod = preds_filtered > threshold
 
-        preds_cod = (min_threshold < preds_filtered) & (preds_filtered < min_threshold + max_threshold)
+        preds_cod = min_threshold < preds_filtered
 
 
 
@@ -146,8 +146,9 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
 
     params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
             'colsample_bytree':p[4], 'eta': p[0]}
-    print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
-    model=xgb.train(params, dtrain, 99999, feval=feval, maximize=True, evals=eval_set, early_stopping_rounds=p[5], evals_result=evals_result)
+    # print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
+    model=xgb.train(params, dtrain, 99999, feval=feval, maximize=True, evals=eval_set,
+                    early_stopping_rounds=p[5], evals_result=evals_result, verbose_eval=False)
     return model
 
 
@@ -226,7 +227,7 @@ def assessStrategyGlobal(test_beginning_match,
     # for aColumn in xtrain.columns:
     #     print(aColumn)
     model = None
-    while model is None or model.best_ntree_limit < 5:
+    while model is None or model.best_ntree_limit < 10:
         model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
@@ -253,7 +254,7 @@ def assessStrategyGlobal(test_beginning_match,
     
     return profit_test,total_matches_bet,max_profit
 
-def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=5, mode='max'):
+def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20, mode='max'):
     """
     The ROI is very sensistive to the training set. A few more matches in the training set can
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
