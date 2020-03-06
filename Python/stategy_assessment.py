@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import random
 import seaborn as sns
+from utilities import *
 
 ############################### STRATEGY ASSESSMENT ############################
 ### the following functions are used to make the predictions and compute the ROI
@@ -35,7 +36,7 @@ def find_max_profit_threshold(xtrain, xval, xtest, preds, labels, list_threshold
 
     profits = []
 
-    for percent,max_threshold in list_thresholds:
+    for percent in list(list_thresholds):
         min_threshold = preds_sorted[-int(percent*len(preds_sorted))]
 
         # preds_cod = preds_filtered > threshold
@@ -54,10 +55,10 @@ def find_max_profit_threshold(xtrain, xval, xtest, preds, labels, list_threshold
 
         if number_matches_we_bet_on > 0:
 
-            profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)/number_matches_we_bet_on
+            profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)
         else:
             profit=0
-        threshold = min_threshold,max_threshold
+        threshold = min_threshold
         profits.append((profit,threshold))
     return max(profits, key=lambda item: item[0])
 
@@ -65,7 +66,7 @@ def find_profit_threshold(features, preds, labels, threshold):
     # labels = dm.get_label()
 
     odds = features['odds']
-    min_threshold,max_threshold = threshold
+    min_threshold = threshold
 
     odds_filtered = ~np.isnan(odds)
     odds = odds[odds_filtered]
@@ -77,7 +78,7 @@ def find_profit_threshold(features, preds, labels, threshold):
     preds_sorted.sort()
 
     # preds_cod = preds_filtered > threshold
-    preds_cod = (min_threshold < preds_filtered) & (preds_filtered < min_threshold + max_threshold)
+    preds_cod = min_threshold < preds_filtered
 
     labels__bet = labels_filtered[preds_cod]
     odds_bet = odds[preds_cod]
@@ -89,7 +90,7 @@ def find_profit_threshold(features, preds, labels, threshold):
 
     if number_matches_we_bet_on > 0:
 
-        profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)/number_matches_we_bet_on
+        profit=100*(sum(odds_bet_good)-number_matches_we_bet_on)
     else:
         profit=0
 
@@ -144,11 +145,12 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
     #         'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
     # model=xgb.train(params, dtrain, int(p[7]), feval=feval, maximize=True, evals=eval_set,early_stopping_rounds=int(p[8]))
 
+    call_back_custom_early = early_stop(p[5], True, True, min_iteration=p[8] - 1)
+
     params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
             'colsample_bytree':p[4], 'eta': p[0]}
     # print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
-    model=xgb.train(params, dtrain, 99999, feval=feval, maximize=True, evals=eval_set,
-                    early_stopping_rounds=p[5], evals_result=evals_result, verbose_eval=False)
+    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=True)
     return model
 
 
@@ -226,9 +228,9 @@ def assessStrategyGlobal(test_beginning_match,
     # print(len(xtrain.columns))
     # for aColumn in xtrain.columns:
     #     print(aColumn)
-    model = None
-    while model is None or model.best_ntree_limit < 10:
-        model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
+    # model = None
+
+    model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
     pred_val= model.predict(xgb.DMatrix(xval,label=None), ntree_limit=model.best_ntree_limit)
@@ -268,10 +270,10 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     profits_matches = []
     bet_value = 100
     for a_model in range(total_models):
-        roi,total_matches_bet,max_profit=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model))
+        profit_iter,total_matches_bet,max_profit=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model))
 
-        total_value = bet_value*total_matches_bet
-        profit_iter = roi/100 * total_value
+        # total_value = bet_value*total_matches_bet
+        # profit_iter = roi/100 * total_value
 
         print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{} MODE:{}'
               .format(a_model, profit_iter, total_matches_bet, max_profit, mode))
