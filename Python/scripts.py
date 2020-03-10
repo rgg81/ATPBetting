@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.ERROR)
 import glob
 
 
-def run_opt(config):
+def run_opt(config, start_date_index):
     global data, stats, total_interval_opts, total_iterations, features
     import numpy
     import xgboost as xgb
@@ -45,8 +45,8 @@ def run_opt(config):
     early_stop=[config['early_stop']]
     min_trees=[config['min_trees']]
     total_models=config['total_models']
+    total_models_selected=config['total_models_selected']
 
-    start_date_index = config['test_beginning_match']
     ######################### The period that interests us #########################
     test_beginning_match=start_date_index #id of the first match of the testing set
 
@@ -85,7 +85,7 @@ def run_opt(config):
     total_rounds = 0
     end_test = None
     for start in key_matches:
-        profit,total_matches,_=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds, total_models=total_models, mode=mode)
+        profit,total_matches,_=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds, total_models=total_models, total_models_selected=total_models_selected, mode=mode)
         total_value = bet_value*total_matches
         # profit_iter = profit/100 * total_value
         acc_profit+=profit
@@ -115,35 +115,44 @@ data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
 total_interval_opts = timedelta(days=60)
-total_iterations = 50
+total_iterations = 150
+total_best_iterations = 5
 
 start_simulation_date = datetime.datetime(2018,1,1)
 test_beginning_match=data[data.Date==start_simulation_date].index[0]
 
+total_profit = 0
+total_games = 0
 
 while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
     duration_val_matches_options = [2000]
     duration_train_matches_options = [10400]
-    threshold_options = [(0.02, 0.01)]
-    # threshold_options = [(0.03, 0.02)]
+    # threshold_options = [(0.02, 0.01),(0.03, 0.02),(0.04, 0.03)]
+    threshold_options = [(0.03, 0.02)]
 
     #learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    learning_rate_options = [0.3, 0.4, 0.35, 0.45]
-    max_depth_options = [4, 5, 6, 7, 8, 9]
+    # learning_rate_options = [0.3, 0.4, 0.35, 0.45, 0.25]
+    learning_rate_options = [0.3]
+    # max_depth_options = [4, 5, 6, 7, 8, 9]
+    max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [100]
-    subsample_options = [0.3, 0.35, 0.4, 0.45]
+    early_stopping_rounds_options = [150]
+    # subsample_options = [0.3, 0.35, 0.4, 0.45, 0.25]
+    subsample_options = [0.25]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    colsample_bytree_options = [0.3, 0.35, 0.4, 0.45]
+    # colsample_bytree_options = [0.3, 0.35, 0.4, 0.45, 0.25]
+    colsample_bytree_options = [0.40]
     #colsample_bytree_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     mode_options = ['sum']
-    total_models_options = [10]
+    total_models_options = [20]
+    # total_models_selected_options = [20, 15, 10, 15, 5]
+    total_models_selected_options = [15]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
-    min_trees_options = [10, 20, 30, 50]
-    #min_trees_options = [150]
+    # min_trees_options = [5, 15, 30, 50]
+    min_trees_options = [20]
     stats = {}
 
     def gen_random_config():
@@ -163,6 +172,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         early_stop=random.choice(early_stopping_rounds_options)
         alpha=[2]
         total_models = random.choice(total_models_options)
+        total_models_selected = random.choice(total_models_selected_options)
         min_trees = random.choice(min_trees_options)
 
         config = {
@@ -174,8 +184,8 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
             "subsample": subsample,
             "colsample_bytree": colsample_bytree,
             "early_stop": early_stop,
-            "test_beginning_match": test_beginning_match,
             "total_models": total_models,
+            "total_models_selected": total_models_selected,
             "min_trees": min_trees
         }
         return config
@@ -183,16 +193,38 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
     end_match = None
 
-    params_config = [gen_random_config() for x in range(total_iterations)]
+    params_config = [(gen_random_config(),test_beginning_match) for x in range(total_iterations)]
 
     # with Pool(cpu_count()-1) as pool:
     with Pool(1) as pool:
-        result = pool.map(run_opt, params_config)
-    # for _ in range(total_iterations):
-    #     end_match, profit, total_plays = run_opt(config)
-    #     print("config: %s %s %s" % (config, profit, total_plays))
+        result = pool.starmap(run_opt, params_config)
+
+    for index_best_iteration in range(total_best_iterations):
+        list_stats = list(stats.items())
+        list_stats.sort(key=lambda x: x[1][0], reverse=True)
+        print("Running best iteration with bests:{}".format(list_stats[:10]))
+        params_best = [(best_configs[0],test_beginning_match) for best_configs in list_stats[:10]]
+
+        with Pool(1) as pool:
+            result = pool.map(run_opt, params_best)
 
     test_beginning_match = result[-1][0]
+    list_stats = list(stats.items())
+    list_stats.sort(key=lambda x: x[1][0], reverse=True)
+    params_best = [(best_configs[0],test_beginning_match) for best_configs in list_stats[:10]]
 
-    print("end date:{}".format(data.Date.iloc[end_match]))
+    with Pool(1) as pool:
+        result = pool.map(run_opt, params_best)
+
+    for index, a_param_best in enumerate(params_best):
+        profit_iteration = result[index][1]
+        games_iteration = result[index][2]
+        total_profit += profit_iteration
+        total_games += games_iteration
+        print("a param:{} a profit:{} games:{} profit acc:{} games acc:{}".format(a_param_best, profit_iteration, games_iteration, total_profit, total_games))
+
+    print("Reseting stats")
+    stats = {}
+
+    print("end date:{} profit acc:{} games acc:{}".format(data.Date.iloc[test_beginning_match], total_profit, total_games))
 

@@ -256,7 +256,7 @@ def assessStrategyGlobal(test_beginning_match,
     
     return profit_test,total_matches_bet,max_profit
 
-def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20, mode='max'):
+def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20,total_models_selected=10, mode='max'):
     """
     The ROI is very sensistive to the training set. A few more matches in the training set can
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
@@ -285,6 +285,9 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     if mode == 'max':
         return max(profits_matches, key=lambda item:item[2])
     else:
+        profits_matches.sort(key=lambda x:x[2], reverse=True)
+        profits_matches = profits_matches[:total_models_selected]
+        print("Selecting {} best val profits:{}".format(total_models_selected, profits_matches))
         return [sum(x) for x in zip(*profits_matches)]
 
 
