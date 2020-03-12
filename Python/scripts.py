@@ -11,6 +11,7 @@ import random
 import logging
 from multiprocessing import Pool, cpu_count
 import warnings
+import pickle
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 logging.basicConfig(level=logging.ERROR)
@@ -102,7 +103,7 @@ def run_opt(config, start_date_index,index_iteration):
 
     with open('out.txt', 'a') as f:
         f.write("Profit: {} Plays:{} Config:{} iteration:{}".format(acc_profit, acc_total_bests, config, index_iteration) + '\n')
-
+    print("stats runopt:{}".format(stats))
     return end_test + 1,acc_profit,acc_total_bests
 
 
@@ -115,14 +116,15 @@ data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
 total_interval_opts = timedelta(days=60)
-total_iterations = 15
-total_best_iterations = 5
+total_iterations = 1
+total_best_iterations = 1
 
 start_simulation_date = datetime.datetime(2018,1,1)
 test_beginning_match=data[data.Date==start_simulation_date].index[0]
 
 total_profit = 0
 total_games = 0
+stats = {}
 
 while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
@@ -134,26 +136,26 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     learning_rate_options = [0.35, 0.3, 0.40]
     # learning_rate_options = [0.3]
-    max_depth_options = [6, 7, 8, 9, 10]
+    max_depth_options = [4, 5, 6, 7, 8, 9, 10]
     # max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [5]
-    subsample_options = [0.3, 0.35, 0.40, 0.45]
+    early_stopping_rounds_options = [10]
+    subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5]
     # subsample_options = [0.25]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    colsample_bytree_options = [0.3, 0.35, 0.40, 0.45]
+    colsample_bytree_options = [0.3, 0.35, 0.40, 0.45, 0.5]
     # colsample_bytree_options = [0.40]
     #colsample_bytree_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     mode_options = ['sum']
-    total_models_options = [40]
-    total_models_selected_options = [20, 15, 10, 15, 5]
+    total_models_options = [20]
+    total_models_selected_options = [20, 15, 10]
     # total_models_selected_options = [15]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
     # min_trees_options = [5, 15, 30, 50]
-    min_trees_options = [2, 4, 6]
-    stats = {}
+    min_trees_options = [10, 20, 30]
+
 
     def gen_random_config():
 
@@ -195,29 +197,38 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     top_pick = 10
 
     params_config = [(gen_random_config(),test_beginning_match,index_iteration) for index_iteration,x in enumerate(range(total_iterations))]
-
     # with Pool(cpu_count()-1) as pool:
-    with Pool(1) as pool:
-        result = pool.starmap(run_opt, params_config)
+    # with Pool(1) as pool:
+    #     result = pool.starmap(run_opt, params_config)
+
+    result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in params_config]
 
     for index_best_iteration in range(total_best_iterations):
         print("stats:{}".format(stats))
         list_stats = list(stats.items())
         list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
+        best_config_list = [x[0] for x in list_stats[:top_pick]]
         print("Running best iteration with bests:{} {}".format(list_stats[:top_pick],index_best_iteration))
-        params_best = [(best_configs[0],test_beginning_match,index_best) for index_best,best_configs in enumerate(list_stats[:top_pick])]
+        params_best = [(best_configs[0],test_beginning_match,index_best) for index_best,best_configs in enumerate(best_config_list)]
 
-        with Pool(1) as pool:
-            result = pool.map(run_opt, params_best)
+        # with Pool(1) as pool:
+        #     result = pool.map(run_opt, params_best)
+
+        result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in
+                  params_best]
 
     test_beginning_match = result[-1][0]
     list_stats = list(stats.items())
     list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
+    best_config_list = [x[0] for x in list_stats[:top_pick]]
     print("Picking best 10 for test:{}".format(list_stats[:top_pick]))
-    params_best = [(best_configs[0],test_beginning_match,index_best_test) for index_best_test,best_configs in enumerate(list_stats[:top_pick])]
+    params_best = [(best_configs[0],test_beginning_match,index_best_test) for index_best_test,best_configs in enumerate(best_config_list)]
 
-    with Pool(1) as pool:
-        result = pool.map(run_opt, params_best)
+    # with Pool(1) as pool:
+    #     result = pool.map(run_opt, params_best)
+
+    result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in
+              params_best]
 
     for index, a_param_best in enumerate(params_best):
         profit_iteration = result[index][1]
