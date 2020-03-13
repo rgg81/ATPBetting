@@ -156,6 +156,21 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # min_trees_options = [5, 15, 30, 50]
     min_trees_options = [10, 20, 30]
 
+    def from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees):
+        return {
+            "duration_train_matches": duration_train_matches,
+            "duration_val_matches": duration_val_matches,
+            "list_thresholds": list_thresholds,
+            "learning_rate": learning_rate,
+            "max_depth": max_depth,
+            "subsample": subsample,
+            "colsample_bytree": colsample_bytree,
+            "early_stop": early_stop,
+            "total_models": total_models,
+            "total_models_selected": total_models_selected,
+            "min_trees": min_trees
+        }
+
 
     def gen_random_config():
 
@@ -177,19 +192,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         total_models_selected = random.choice(total_models_selected_options)
         min_trees = random.choice(min_trees_options)
 
-        config = {
-            "duration_train_matches": duration_train_matches,
-            "duration_val_matches": duration_val_matches,
-            "list_thresholds": list_thresholds,
-            "learning_rate": learning_rate,
-            "max_depth": max_depth,
-            "subsample": subsample,
-            "colsample_bytree": colsample_bytree,
-            "early_stop": early_stop,
-            "total_models": total_models,
-            "total_models_selected": total_models_selected,
-            "min_trees": min_trees
-        }
+        config = from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees)
         return config
 
 
@@ -207,9 +210,9 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         print("stats:{}".format(stats))
         list_stats = list(stats.items())
         list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
-        best_config_list = [x[0] for x in list_stats[:top_pick]]
+        best_config_list = [from_values_to_config(*x[0]) for x in list_stats[:top_pick]]
         print("Running best iteration with bests:{} {}".format(list_stats[:top_pick],index_best_iteration))
-        params_best = [(best_configs[0],test_beginning_match,index_best) for index_best,best_configs in enumerate(best_config_list)]
+        params_best = [(best_configs,test_beginning_match,index_best) for index_best,best_configs in enumerate(best_config_list)]
 
         # with Pool(1) as pool:
         #     result = pool.map(run_opt, params_best)
@@ -220,9 +223,9 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     test_beginning_match = result[-1][0]
     list_stats = list(stats.items())
     list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
-    best_config_list = [x[0] for x in list_stats[:top_pick]]
+    best_config_list = [from_values_to_config(*x[0]) for x in list_stats[:top_pick]]
     print("Picking best 10 for test:{}".format(list_stats[:top_pick]))
-    params_best = [(best_configs[0],test_beginning_match,index_best_test) for index_best_test,best_configs in enumerate(best_config_list)]
+    params_best = [(best_configs,test_beginning_match,index_best_test) for index_best_test,best_configs in enumerate(best_config_list)]
 
     # with Pool(1) as pool:
     #     result = pool.map(run_opt, params_best)
