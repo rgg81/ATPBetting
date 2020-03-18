@@ -171,7 +171,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [100]
+    early_stopping_rounds_options = [300]
     subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
     # subsample_options = [0.25]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
