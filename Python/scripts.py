@@ -117,8 +117,9 @@ data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
 total_interval_opts = timedelta(days=60)
-total_iterations = 149
+total_iterations = 100
 total_best_iterations = 5
+top_pick = 10
 
 start_simulation_date = datetime.datetime(2018,1,1)
 test_beginning_match=data[data.Date==start_simulation_date].index[0]
@@ -164,13 +165,13 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     threshold_options = [(0.03, 0.02)]
 
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    learning_rate_options = [0.35, 0.3, 0.40]
+    learning_rate_options = [0.35, 0.3, 0.40, 0.45]
     # learning_rate_options = [0.3]
     max_depth_options = [8, 9, 10]
     # max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [300]
+    early_stopping_rounds_options = [100]
     subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
     # subsample_options = [0.25]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
@@ -227,8 +228,6 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
 
     end_match = None
-    top_pick = 10
-
     params_config = [(gen_random_config(),test_beginning_match,index_iteration) for index_iteration in range(optimize_iteration, total_iterations)]
     # with Pool(cpu_count()-1) as pool:
     # with Pool(1) as pool:
