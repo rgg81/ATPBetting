@@ -73,9 +73,9 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     mode=['sum']
 
     ## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
-    print('span_matches:{} duration_test_matches:{}'.format(span_matches, duration_test_matches))
+    print('span_matches:{} duration_test_matches:{}'.format(span_matches, duration_test_matches), flush=True)
     key_matches=np.array([test_beginning_match+duration_test_matches*i for i in range(int(span_matches/duration_test_matches)+1)])
-    print('key_matches:{}'.format(key_matches))
+    print('key_matches:{}'.format(key_matches), flush=True)
     confs=[]
     acc_profit = 0
     acc_total_bests = 0
@@ -89,7 +89,7 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
         acc_profit+=profit
         acc_total_bests+=total_matches
         total_rounds+=1
-        print('Acc PROFIT:{} profit iter:{} total value:{} total rounds:{}'.format(acc_profit, profit, total_value, total_rounds))
+        print('Acc PROFIT:{} profit iter:{} total value:{} total rounds:{}'.format(acc_profit, profit, total_value, total_rounds), flush=True)
         nm=int(len(features)/2)
         end_test=min(start+duration_test_matches-1,nm-1)
 
@@ -240,7 +240,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         list_stats = list(stats.items())
         list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
         best_config_list = [from_values_to_config(*x[0]) for x in list_stats[:top_pick]]
-        print("Running best iteration with bests:{} {}".format(list_stats[:top_pick],index_best_iteration))
+        print("Running best iteration with bests:{} {}".format(list_stats[:top_pick],index_best_iteration), flush=True)
         params_best = [(best_configs,test_beginning_match,index_best) for index_best,best_configs in enumerate(best_config_list)]
         result = [run_opt(config, start_date_index, index_iteration, optimize=False) for config, start_date_index, index_iteration in
                   params_best]
@@ -251,7 +251,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     list_stats = list(stats.items())
     list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
     best_config_list = [from_values_to_config(*x[0]) for x in list_stats[:top_pick]]
-    print("Picking best 10 for test:{}".format(list_stats[:top_pick]))
+    print("Picking best 10 for test:{}".format(list_stats[:top_pick]), flush=True)
     params_best = [(best_configs,test_beginning_match,index_best_test) for index_best_test,best_configs in enumerate(best_config_list)]
 
     # with Pool(1) as pool:

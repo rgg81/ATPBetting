@@ -256,7 +256,7 @@ def assessStrategyGlobal(test_beginning_match,
     assert profit_test_check == max_profit_test
 
     print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{}'
-          .format(model_name, profit_test, total_matches_bet, max_profit))
+          .format(model_name, profit_test, total_matches_bet, max_profit), flush=True)
     return profit_test,total_matches_bet,max_profit
 
 
