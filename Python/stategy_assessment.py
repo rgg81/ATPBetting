@@ -152,7 +152,7 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
     params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
             'colsample_bytree':p[4], 'eta': p[0]}
     # print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
-    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=False)
+    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=True)
     return model
 
 
