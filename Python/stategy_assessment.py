@@ -3,9 +3,10 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import xgboost as xgb
+# import xgboost as xgb
 import random
 import seaborn as sns
+from multiprocessing import Pool, cpu_count
 from utilities import *
 
 ############################### STRATEGY ASSESSMENT ############################
@@ -98,6 +99,7 @@ def find_profit_threshold(features, preds, labels, threshold):
 
 
 def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, list_thresholds, sample_weights=None):
+    import xgboost as xgb
     """
     XGB model training. 
     Early stopping is performed using xval and yval (validation set).
@@ -150,7 +152,7 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
     params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
             'colsample_bytree':p[4], 'eta': p[0]}
     # print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
-    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=True)
+    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=False)
     return model
 
 
@@ -174,6 +176,10 @@ def assessStrategyGlobal(test_beginning_match,
     implied by the bookmaker (=1/odd).
     """
     ########## Training/validation/testing set generation
+
+    import numpy
+    import xgboost as xgb
+    numpy.random.seed()
     
     # Number of matches in our dataset (ie. nb. of outcomes divided by 2)
     nm=int(len(features)/2)
@@ -249,12 +255,10 @@ def assessStrategyGlobal(test_beginning_match,
 
     assert profit_test_check == max_profit_test
 
-
-    # pred_metric = model.evals_result()
-
-
-    
+    print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{}'
+          .format(model_name, profit_test, total_matches_bet, max_profit))
     return profit_test,total_matches_bet,max_profit
+
 
 def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20,total_models_selected=10, mode='max'):
     """
@@ -269,19 +273,11 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     """
     profits_matches = []
     bet_value = 100
-    for a_model in range(total_models):
-        profit_iter,total_matches_bet,max_profit=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model))
 
-        # total_value = bet_value*total_matches_bet
-        # profit_iter = roi/100 * total_value
+    params_starmap = [(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model)) for a_model in range(total_models)]
+    with Pool(cpu_count()-1) as pool:
+        profits_matches = pool.starmap(assessStrategyGlobal, params_starmap)
 
-        print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{} MODE:{}'
-              .format(a_model, profit_iter, total_matches_bet, max_profit, mode))
-
-
-        profits_matches.append((profit_iter,total_matches_bet,max_profit))
-
-    #
     if mode == 'max':
         return max(profits_matches, key=lambda item:item[2])
     else:

@@ -28,11 +28,8 @@ logging.basicConfig(level=logging.ERROR)
 import glob
 
 
-def run_opt(config, start_date_index,index_iteration):
+def run_opt(config, start_date_index,index_iteration, optimize=True):
     global data, stats, total_interval_opts, total_iterations, features
-    import numpy
-    import xgboost as xgb
-    numpy.random.seed()
 
     duration_val_matches=config['duration_val_matches']
     duration_train_matches=config['duration_train_matches']
@@ -104,6 +101,10 @@ def run_opt(config, start_date_index,index_iteration):
     with open('out.txt', 'a') as f:
         f.write("Profit: {} Plays:{} Config:{} iteration:{}".format(acc_profit, acc_total_bests, config, index_iteration) + '\n')
     print("stats runopt:{}".format(stats))
+    if optimize:
+        state['optimize_iteration'] = index_iteration
+    state['stats'] = stats
+    save_state()
     return end_test + 1,acc_profit,acc_total_bests
 
 
@@ -116,15 +117,44 @@ data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
 total_interval_opts = timedelta(days=60)
-total_iterations = 1
-total_best_iterations = 1
+total_iterations = 149
+total_best_iterations = 5
 
 start_simulation_date = datetime.datetime(2018,1,1)
 test_beginning_match=data[data.Date==start_simulation_date].index[0]
 
 total_profit = 0
 total_games = 0
+state = {}
+
 stats = {}
+optimize_iteration = 0
+repeat_best_iteration = 0
+
+
+def save_state():
+    with open('state.pickle', 'wb') as f:
+        pickle.dump(state, f)
+
+
+try:
+    with open('state.pickle', 'rb') as f:
+        state = pickle.load(f)
+        stats = state['stats']
+        if 'optimize_iteration' in state:
+            optimize_iteration = state['optimize_iteration']
+        if 'repeat_best_iteration' in state:
+            repeat_best_iteration = state['repeat_best_iteration']
+        if 'test_beginning_match' in state:
+            test_beginning_match = state['test_beginning_match']
+        if 'total_profit' in state:
+            total_profit = state['total_profit']
+        if 'total_games' in state:
+            total_games = state['total_games']
+        print(f'recovered state with success:{state}')
+except:
+    print('not able to recover state basic')
+
 
 while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
@@ -136,15 +166,15 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     learning_rate_options = [0.35, 0.3, 0.40]
     # learning_rate_options = [0.3]
-    max_depth_options = [4, 5, 6, 7, 8, 9, 10]
+    max_depth_options = [8, 9, 10]
     # max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [10]
-    subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5]
+    early_stopping_rounds_options = [300]
+    subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
     # subsample_options = [0.25]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    colsample_bytree_options = [0.3, 0.35, 0.40, 0.45, 0.5]
+    colsample_bytree_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
     # colsample_bytree_options = [0.40]
     #colsample_bytree_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     mode_options = ['sum']
@@ -199,26 +229,24 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     end_match = None
     top_pick = 10
 
-    params_config = [(gen_random_config(),test_beginning_match,index_iteration) for index_iteration,x in enumerate(range(total_iterations))]
+    params_config = [(gen_random_config(),test_beginning_match,index_iteration) for index_iteration in range(optimize_iteration, total_iterations)]
     # with Pool(cpu_count()-1) as pool:
     # with Pool(1) as pool:
     #     result = pool.starmap(run_opt, params_config)
 
     result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in params_config]
 
-    for index_best_iteration in range(total_best_iterations):
+    for index_best_iteration in range(repeat_best_iteration, total_best_iterations):
         print("stats:{}".format(stats))
         list_stats = list(stats.items())
         list_stats.sort(key=lambda x: x[1][0]/x[1][1], reverse=True)
         best_config_list = [from_values_to_config(*x[0]) for x in list_stats[:top_pick]]
         print("Running best iteration with bests:{} {}".format(list_stats[:top_pick],index_best_iteration))
         params_best = [(best_configs,test_beginning_match,index_best) for index_best,best_configs in enumerate(best_config_list)]
-
-        # with Pool(1) as pool:
-        #     result = pool.map(run_opt, params_best)
-
-        result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in
+        result = [run_opt(config, start_date_index, index_iteration, optimize=False) for config, start_date_index, index_iteration in
                   params_best]
+        state['repeat_best_iteration'] = index_best_iteration
+        save_state()
 
     test_beginning_match = result[-1][0]
     list_stats = list(stats.items())
@@ -230,7 +258,7 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # with Pool(1) as pool:
     #     result = pool.map(run_opt, params_best)
 
-    result = [run_opt(config, start_date_index, index_iteration) for config, start_date_index, index_iteration in
+    result = [run_opt(config, start_date_index, index_iteration, optimize=False) for config, start_date_index, index_iteration in
               params_best]
 
     for index, a_param_best in enumerate(params_best):
@@ -238,10 +266,23 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         games_iteration = result[index][2]
         total_profit += profit_iteration
         total_games += games_iteration
-        print("a param:{} a profit:{} games:{} profit acc:{} games acc:{}".format(a_param_best, profit_iteration, games_iteration, total_profit, total_games))
+        with open('log_profits.txt', 'a') as f:
+            print("a param:{} a profit:{} games:{} profit acc:{} games acc:{} {}".format(a_param_best, profit_iteration,
+                                                                                         games_iteration, total_profit,
+                                                                                         total_games,
+                                                                                         data.Date.iloc[test_beginning_match]), file=f, flush=True)
 
     print("Reseting stats")
     stats = {}
+    optimize_iteration = 0
+    repeat_best_iteration = 0
+    state['optimize_iteration'] = optimize_iteration
+    state['repeat_best_iteration'] = repeat_best_iteration
+    state['stats'] = stats
+    state['test_beginning_match'] = test_beginning_match
+    state['total_profit'] = total_profit
+    state['total_games'] = total_games
+    save_state()
 
     print("end date:{} profit acc:{} games acc:{}".format(data.Date.iloc[test_beginning_match], total_profit, total_games))
 
