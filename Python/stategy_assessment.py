@@ -8,6 +8,7 @@ import random
 import seaborn as sns
 from multiprocessing import Pool, cpu_count
 from utilities import *
+from sklearn.metrics import confusion_matrix
 
 ############################### STRATEGY ASSESSMENT ############################
 ### the following functions are used to make the predictions and compute the ROI
@@ -15,6 +16,14 @@ from utilities import *
 # list_thresholds =  [0.7, 0.5, 0.3, 0.15, 0.1, 0.05, 0.02]
 # list_thresholds =  [(0.05,0.10),(0.04,0.10),(0.03,0.10),(0.02,0.10)]
 # list_thresholds =  [0.09]
+
+
+def fix_prob_thresholds(pred_iteration, pred_iteration_probs, threshold_bet):
+    for index_prediction_valid in range(len(pred_iteration)):
+        if pred_iteration[index_prediction_valid] == 1 and pred_iteration_probs[index_prediction_valid] <= threshold_bet:
+            pred_iteration[index_prediction_valid] = 0
+    return pred_iteration
+
 
 def find_max_profit_threshold(xtrain, xval, xtest, preds, labels, list_thresholds):
     # labels = dm.get_label()
@@ -129,8 +138,10 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
     weights = xtrain['odds'].fillna(0)
 
     # print(weights[0:10])
-    weights[~even_row] = 1
-    weights[even_row] = 10 * weights[even_row]
+    even_values = weights[even_row]
+    weights = np.repeat(even_values, 2)
+    # weights[~even_row] = even_values
+    # weights[even_row] = p[9] * weights[even_row]
     # print(len(weights))
     # print(weights[0:10])
     # print(ytrain[0:10])
@@ -152,7 +163,7 @@ def xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, p, evals_result, li
     params={"objective":"binary:logistic",'subsample':p[2],'max_depth':int(p[1]), 'seed': random.randint(1,999999),
             'colsample_bytree':p[4], 'eta': p[0]}
     # print('Training total samples train:{} total samples validation:{}'.format(len(xtrain), len(xval)))
-    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=True)
+    model=xgb.train(params, dtrain, 99999, feval=feval, evals=eval_set, callbacks=[call_back_custom_early], evals_result=evals_result, verbose_eval=False)
     return model
 
 
@@ -231,7 +242,8 @@ def assessStrategyGlobal(test_beginning_match,
     
     ### ML model training
 
-    # print(len(xtrain.columns))
+    print(f"COLUMNS -------")
+    print(len(xtrain.columns), flush=True)
     # for aColumn in xtrain.columns:
     #     print(aColumn)
     # model = None
@@ -246,9 +258,13 @@ def assessStrategyGlobal(test_beginning_match,
 
     max_profit_test,threshold_test = find_max_profit_threshold(xtrain,xval,xtest,pred_test,ytest, list_thresholds)
 
+    preds_test_argmax = [0 if x < 0.50 else 1 for x in pred_test]
 
+    pred_test_iteration = fix_prob_thresholds(preds_test_argmax, pred_test, threshold)
 
-
+    cm = confusion_matrix(ytest, pred_test_iteration)
+    print(cm)
+    print(f'\n', flush=True)
 
     profit_test,total_matches_bet = find_profit_threshold(xtest,pred_test,ytest,threshold)
     profit_test_check,total_matches_bet_check = find_profit_threshold(xtest,pred_test,ytest,threshold_test)
@@ -257,7 +273,19 @@ def assessStrategyGlobal(test_beginning_match,
 
     print('VALIDATION STATS MODEL NAME:{} PROFIT:{} MATCHES:{} MAX VAL ROI:{}'
           .format(model_name, profit_test, total_matches_bet, max_profit), flush=True)
-    return profit_test,total_matches_bet,max_profit
+    return profit_test,total_matches_bet,max_profit,pred_test_iteration,xtest,ytest
+
+
+def find_class_more_voted(all_votes):
+    y = np.bincount(all_votes.astype(int))
+    ii = np.nonzero(y)[0]
+    count_per_class = list(zip(ii,y[ii]))
+    result_sorted = sorted(count_per_class,key=lambda item:item[1])
+    if len(result_sorted) > 1 and result_sorted[-1][1] == result_sorted[-2][1]:
+        result = 1
+    else:
+        result = result_sorted[-1][0]
+    return result
 
 
 def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20,total_models_selected=10, mode='max'):
@@ -283,8 +311,25 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     else:
         profits_matches.sort(key=lambda x:x[2], reverse=True)
         profits_matches = profits_matches[:total_models_selected]
-        print("Selecting {} best val profits:{}".format(total_models_selected, profits_matches))
-        return [sum(x) for x in zip(*profits_matches)]
+        stack_preds = [x[3] for x in profits_matches]
+        stacked_preds = np.dstack(tuple(stack_preds))
+        stacked_preds = np.reshape(stacked_preds,(stacked_preds.shape[1],stacked_preds.shape[2]))
+        merged_preds = list(map(find_class_more_voted,stacked_preds))
+
+        # preds are 0.0 or 1.0 so threshold 0.50
+        end_profit,end_matches = find_profit_threshold(profits_matches[0][4],np.array(merged_preds),profits_matches[0][5],0.50)
+
+        print("Selecting {} best val profits:{} end_profit:{} end_matches:{}".format(total_models_selected, [x[:3] for x in profits_matches], end_profit, end_matches))
+
+        # print("Selecting {} best val profits:{}".format(total_models_selected, [x[:3] for x in profits_matches]))
+        # profits_matches = [x[:2] for x in profits_matches]
+        # return [sum(x) for x in zip(*profits_matches)]
+
+        cm = confusion_matrix(profits_matches[0][5], merged_preds)
+        print(cm)
+        print(f'\n', flush=True)
+
+        return end_profit,end_matches
 
 
 ############################### PROFITS COMPUTING AND VISUALIZATION ############

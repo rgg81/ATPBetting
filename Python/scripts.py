@@ -44,6 +44,7 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     min_trees=[config['min_trees']]
     total_models=config['total_models']
     total_models_selected=config['total_models_selected']
+    factor_weight=config['factor_weight']
 
     ######################### The period that interests us #########################
     test_beginning_match=start_date_index #id of the first match of the testing set
@@ -52,7 +53,7 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     print(start_date_index)
     print(total_interval_opts)
     print(data[data.Date == data.Date.iloc[start_date_index]])
-    end = data[data.Date==data.Date.iloc[start_date_index] + total_interval_opts].index[0]
+    end = data[data.Date >= data.Date.iloc[start_date_index] + total_interval_opts].index[0]
 
     print('test_beginning_match:{} end:{} config:{}'.format(data.Date.iloc[test_beginning_match], data.Date.iloc[end], config))
 
@@ -61,13 +62,13 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     # duration_val_matches_options = [2000, 1500, 2500, 1000, 500]
     # duration_val_matches_options = [2000, 2200, 1900]
     ## Number of tournaments and players encoded directly in one-hot
-    nb_players=50
-    nb_tournaments=10
+    nb_players=1
+    nb_tournaments=1
 
     alpha = [0.8]
     gamma = [0.9]
     num_rounds=[999999]
-    params=np.array(np.meshgrid(learning_rate,max_depth,subsample,gamma,colsample_bytree,early_stop,alpha,num_rounds,min_trees)).T.reshape(-1,9).astype(np.float)
+    params=np.array(np.meshgrid(learning_rate,max_depth,subsample,gamma,colsample_bytree,early_stop,alpha,num_rounds,min_trees,factor_weight)).T.reshape(-1,10).astype(np.float)
     xgb_params=params[0]
     duration_test_matches=100
     mode=['sum']
@@ -83,7 +84,7 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     total_rounds = 0
     end_test = None
     for start in key_matches:
-        profit,total_matches,_=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds, total_models=total_models, total_models_selected=total_models_selected, mode=mode)
+        profit,total_matches=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds, total_models=total_models, total_models_selected=total_models_selected, mode=mode)
         total_value = bet_value*total_matches
         # profit_iter = profit/100 * total_value
         acc_profit+=profit
@@ -116,12 +117,13 @@ indices = data[(data.Date>beg)&(data.Date<data.Date.iloc[-1])].index
 data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
-total_interval_opts = timedelta(days=60)
-total_iterations = 100
+total_interval_opts = timedelta(days=180)
+total_iterations = 50
 total_best_iterations = 5
-top_pick = 10
+top_pick = 3
+total_repeat = 2
 
-start_simulation_date = datetime.datetime(2018,1,1)
+start_simulation_date = datetime.datetime(2017,6,1)
 test_beginning_match=data[data.Date==start_simulation_date].index[0]
 
 total_profit = 0
@@ -159,35 +161,51 @@ except:
 
 while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
-    duration_val_matches_options = [2000]
-    duration_train_matches_options = [10400]
+    # duration_val_matches_options = [2000]
+    duration_val_matches_options = [4000]
+    # duration_train_matches_options = [10400]
+    duration_train_matches_options = [16400]
     # threshold_options = [(0.02, 0.01),(0.03, 0.02),(0.04, 0.03)]
-    threshold_options = [(0.03, 0.02)]
+    # threshold_options = [(0.10, 0.08),(0.15, 0.10),(0.20, 0.15)]
+    # threshold_options = [(0.15, 0.10),(0.10, 0.08),(0.08, 0.06),(0.06, 0.04),(0.04, 0.02)]
+    threshold_options = [(0.80, 0.60, 0.40)]
 
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    learning_rate_options = [0.35, 0.3, 0.40, 0.45]
-    # learning_rate_options = [0.3]
+    # learning_rate_options = [0.35, 0.3, 0.40, 0.45]
+    learning_rate_options = [0.35, 0.30, 0.40]
+    # learning_rate_options = [0.30]
+    # max_depth_options = [8, 9, 10]
+    # max_depth_options = [4, 6, 8, 10]
+    # max_depth_options = [4, 5, 6, 7, 8, 9, 10]
     max_depth_options = [8, 9, 10]
-    # max_depth_options = [8]
     #max_depth_options = [3, 4, 5, 6]
     # early_stopping_rounds_options = [50, 100, 300]
-    early_stopping_rounds_options = [150]
-    subsample_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
-    # subsample_options = [0.25]
+    # early_stopping_rounds_options = [10, 15, 20]
+    early_stopping_rounds_options = [1]
+    # subsample_options = [0.25, 0.3, 0.35, 0.40, 0.45]
+    # subsample_options = [0.35, 0.40, 0.25, 0.40, 0.45, 0.50, 0.55]
+    subsample_options = [0.55, 0.60, 0.50, 0.45, 0.40]
     #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
-    colsample_bytree_options = [0.3, 0.35, 0.40, 0.45, 0.5, 0.55]
-    # colsample_bytree_options = [0.40]
-    #colsample_bytree_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
+    # colsample_bytree_options = [0.25, 0.3, 0.35, 0.40, 0.45]
+    # colsample_bytree_options = [0.35, 0.30, 0.25, 0.40, 0.45, 0.50, 0.55]
+    colsample_bytree_options = [0.45, 0.50, 0.55, 0.60, 0.40, 0.35, 0.30]
     mode_options = ['sum']
-    total_models_options = [10]
-    total_models_selected_options = [10, 9, 8, 7]
-    # total_models_selected_options = [15]
+    # total_models_options = [50, 40, 60]
+    total_models_options = [70]
+    # total_models_selected_options = [10, 9, 8, 7]
+    # total_models_selected_options = [20, 25, 30]
+    total_models_selected_options = [40, 30, 50]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
     # min_trees_options = [5, 15, 30, 50]
-    min_trees_options = [10, 20, 30]
+    # min_trees_options = [10, 20, 30]
+    # min_trees_options = [20, 30, 40, 50]
+    # min_trees_options = [10, 20, 30, 50]
+    min_trees_options = [10, 5, 30, 50]
 
-    def from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees):
+    factor_weight_options = [1, 3, 5, 10]
+
+    def from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight):
         return {
             "duration_train_matches": duration_train_matches,
             "duration_val_matches": duration_val_matches,
@@ -199,7 +217,8 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
             "early_stop": early_stop,
             "total_models": total_models,
             "total_models_selected": total_models_selected,
-            "min_trees": min_trees
+            "min_trees": min_trees,
+            "factor_weight": factor_weight
         }
 
 
@@ -222,8 +241,9 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         total_models = random.choice(total_models_options)
         total_models_selected = random.choice(total_models_selected_options)
         min_trees = random.choice(min_trees_options)
+        factor_weight = random.choice(factor_weight_options)
 
-        config = from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees)
+        config = from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight)
         return config
 
 
@@ -257,19 +277,20 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
     # with Pool(1) as pool:
     #     result = pool.map(run_opt, params_best)
 
-    result = [run_opt(config, start_date_index, index_iteration, optimize=False) for config, start_date_index, index_iteration in
-              params_best]
+    for index_total_repeat in range(total_repeat):
+        result = [run_opt(config, start_date_index, index_iteration, optimize=False) for config, start_date_index, index_iteration in
+                  params_best]
 
-    for index, a_param_best in enumerate(params_best):
-        profit_iteration = result[index][1]
-        games_iteration = result[index][2]
-        total_profit += profit_iteration
-        total_games += games_iteration
-        with open('log_profits.txt', 'a') as f:
-            print("a param:{} a profit:{} games:{} profit acc:{} games acc:{} {}".format(a_param_best, profit_iteration,
-                                                                                         games_iteration, total_profit,
-                                                                                         total_games,
-                                                                                         data.Date.iloc[test_beginning_match]), file=f, flush=True)
+        for index, a_param_best in enumerate(params_best):
+            profit_iteration = result[index][1]
+            games_iteration = result[index][2]
+            total_profit += profit_iteration
+            total_games += games_iteration
+            with open('log_profits.txt', 'a') as f:
+                print("a param:{} a profit:{} games:{} profit acc:{} games acc:{} {} {}".format(a_param_best, profit_iteration,
+                                                                                             games_iteration, total_profit,
+                                                                                             total_games,
+                                                                                             data.Date.iloc[test_beginning_match], index_total_repeat), file=f, flush=True)
 
     print("Reseting stats")
     stats = {}
