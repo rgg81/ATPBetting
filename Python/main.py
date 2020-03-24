@@ -56,6 +56,15 @@ data.to_csv("../Generated Data/atp_data.csv",index=True)
 elo_rankings = compute_elo_rankings(data)
 data = pd.concat([data,elo_rankings],1)
 
+elo_rankings = data[["elo_winner","elo_loser","proba_elo"]]
+elo_1 = elo_rankings
+elo_2 = elo_1[["elo_loser","elo_winner","proba_elo"]]
+elo_2.columns = ["elo_winner","elo_loser","proba_elo"]
+elo_2.proba_elo = 1-elo_2.proba_elo
+elo_2.index = range(1,2*len(elo_1),2)
+elo_1.index = range(0,2*len(elo_1),2)
+features_elo_ranking = pd.concat([elo_1,elo_2]).sort_index(kind='merge')
+
 ################################################################################
 ######################## Building training set #################################
 ################################################################################
@@ -110,14 +119,7 @@ features_onehot = pd.concat([features_categorical_encoded],1)
 ## Of course it isn't a simple duplication of  each row, we need to "invert" some features
 
 # Elo data
-elo_rankings = data[["elo_winner","elo_loser","proba_elo"]]
-elo_1 = elo_rankings
-elo_2 = elo_1[["elo_loser","elo_winner","proba_elo"]]
-elo_2.columns = ["elo_winner","elo_loser","proba_elo"]
-elo_2.proba_elo = 1-elo_2.proba_elo
-elo_2.index = range(1,2*len(elo_1),2)
-elo_1.index = range(0,2*len(elo_1),2)
-features_elo_ranking = pd.concat([elo_1,elo_2]).sort_index(kind='merge')
+
 
 # Categorical features
 features_onehot = pd.DataFrame(np.repeat(features_onehot.values,2, axis=0),columns=features_onehot.columns)
