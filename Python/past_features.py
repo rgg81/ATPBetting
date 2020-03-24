@@ -42,6 +42,7 @@ def features_past_generation(features_creation_function,
 
 
 def features_player_creation(outcome,match,past_matches):
+
     features_player=[]
     ##### Match information extraction (according to the outcome)
     player=match.Winner if outcome==1 else match.Loser
@@ -61,7 +62,25 @@ def features_player_creation(outcome,match,past_matches):
     features_player+=[len(wins_surface),len(losses_surface),len(todo_surface)]
     per_victory_surface=100*len(wins_surface)/len(todo_surface) if len(todo_surface)>0 else np.nan
     features_player.append(per_victory_surface)
+
+    # if len(past_matches) > 0 and (match.Loser == "Garin C." or match.Winner == "Garin C."):
+    #     print(f"match date:{match.Date} first past:{past_matches.iloc[0].Date} last past:{past_matches.iloc[-1].Date} features_player:{features_player} match winner:{match.Winner} match winner:{match.Loser}")
+
     return features_player
+
+def label_creation(outcome,match,past_matches):
+    features_player=[]
+    ##### Match information extraction (according to the outcome)
+    return [1] if outcome==1 else [0]
+
+
+def index_match_creation(outcome,match,past_matches):
+    features_player=[]
+    ##### Match information extraction (according to the outcome)
+    # print(match)
+    # print(f"match index{match.index}")
+    return [match['index']]
+
 
 def features_recent_creation(outcome,match,past_matches):
     ##### Match information extraction (according to the outcome)

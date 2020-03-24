@@ -31,6 +31,21 @@ import glob
 def run_opt(config, start_date_index,index_iteration, optimize=True):
     global data, stats, total_interval_opts, total_iterations, features
 
+    threshold_prob_bet = config['threshold_prob_bet']
+
+    data = data[(data['PSW']>threshold_prob_bet)&(data['PSL']>threshold_prob_bet)]
+    list_ids = list(data['matchid'].values)
+
+    features = features.loc[features['matchid0'].isin(list_ids)]
+
+    print(f"Features odds filtered:{features[-50:]}")
+
+    data.reset_index(inplace=True)
+    features.reset_index(inplace=True)
+
+    print(f"Colum names:{list(features.columns)}")
+    print(f"Sample len features:{len(features)} len data:{len(data)}")
+
     duration_val_matches=config['duration_val_matches']
     duration_train_matches=config['duration_train_matches']
     list_thresholds = config['list_thresholds']
@@ -44,9 +59,13 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     min_trees=[config['min_trees']]
     total_models=config['total_models']
     total_models_selected=config['total_models_selected']
-    factor_weight=config['factor_weight']
+    factor_weight=1
 
-    ######################### The period that interests us #########################
+    features_select = config["features_select"]
+
+    if start_date_index is None:
+        start_date_index=data[data.Date>=start_simulation_date].index[0]
+
     test_beginning_match=start_date_index #id of the first match of the testing set
 
     print(len(data))
@@ -84,7 +103,7 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
     total_rounds = 0
     end_test = None
     for start in key_matches:
-        profit,total_matches=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds, total_models=total_models, total_models_selected=total_models_selected, mode=mode)
+        profit,total_matches=vibratingAssessStrategyGlobal(start,duration_train_matches,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data, list_thresholds,features_select, total_models=total_models, total_models_selected=total_models_selected, mode=mode)
         total_value = bet_value*total_matches
         # profit_iter = profit/100 * total_value
         acc_profit+=profit
@@ -112,19 +131,24 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
 data=pd.read_csv("../Generated Data/atp_data.csv")
 data.Date = data.Date.apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
 
-beg = datetime.datetime(2008,1,1)
-indices = data[(data.Date>beg)&(data.Date<data.Date.iloc[-1])].index
-data = data.iloc[indices,:].reset_index(drop=True)
+# beg = datetime.datetime(2004,1,1)
+
+# indices = data[(data.Date>beg) & (data['PSW']>threshold_prob_bet) & (data['PSL']>threshold_prob_bet)].index
+# indices = data.index
+# data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
 
-total_interval_opts = timedelta(days=180)
-total_iterations = 50
+# total_interval_opts = timedelta(days=360)
+total_interval_opts = timedelta(days=120)
+total_iterations = 150
 total_best_iterations = 5
-top_pick = 3
+top_pick = 10
 total_repeat = 2
 
-start_simulation_date = datetime.datetime(2017,6,1)
-test_beginning_match=data[data.Date==start_simulation_date].index[0]
+# start_simulation_date = datetime.datetime(2018,1,1)
+start_simulation_date = datetime.datetime(2018,1,1)
+# test_beginning_match=data[data.Date>=start_simulation_date].index[0]
+test_beginning_match=None
 
 total_profit = 0
 total_games = 0
@@ -159,53 +183,63 @@ except:
     print('not able to recover state basic')
 
 
-while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
+while test_beginning_match is None or data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
 
     # duration_val_matches_options = [2000]
-    duration_val_matches_options = [4000]
+    duration_val_matches_options = [1000]
     # duration_train_matches_options = [10400]
-    duration_train_matches_options = [16400]
+    duration_train_matches_options = [16000]
     # threshold_options = [(0.02, 0.01),(0.03, 0.02),(0.04, 0.03)]
     # threshold_options = [(0.10, 0.08),(0.15, 0.10),(0.20, 0.15)]
     # threshold_options = [(0.15, 0.10),(0.10, 0.08),(0.08, 0.06),(0.06, 0.04),(0.04, 0.02)]
-    threshold_options = [(0.80, 0.60, 0.40)]
+    # threshold_options = [(0.80, 0.60, 0.40)]
+    threshold_options = [(0.40, 0.25, 0.10), (0.25, 0.15, 0.10), (0.55, 0.35, 0.20), (0.75, 0.55, 0.40), (0.15, 0.10, 0.05)]
+
+    features_select_options = [(), ("generalft, playerft"), ("elo","cat_feature"), ("playerft","duoft"), ("cat_feature","playerft"), ("elo","playerft"), ("duoft","generalft")]
+
+    threshold_prob_bet_options = [1.4, 1.5, 1.6, 1.7]
 
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     # learning_rate_options = [0.35, 0.3, 0.40, 0.45]
     learning_rate_options = [0.35, 0.30, 0.40]
-    # learning_rate_options = [0.30]
+    # learning_rate_options = [0.35]
     # max_depth_options = [8, 9, 10]
     # max_depth_options = [4, 6, 8, 10]
     # max_depth_options = [4, 5, 6, 7, 8, 9, 10]
-    max_depth_options = [8, 9, 10]
-    #max_depth_options = [3, 4, 5, 6]
+    # max_depth_options = [6,7,8,9, 10, 11, 12]
+    max_depth_options = [7, 8, 9, 10]
     # early_stopping_rounds_options = [50, 100, 300]
     # early_stopping_rounds_options = [10, 15, 20]
-    early_stopping_rounds_options = [1]
+    early_stopping_rounds_options = [10]
     # subsample_options = [0.25, 0.3, 0.35, 0.40, 0.45]
     # subsample_options = [0.35, 0.40, 0.25, 0.40, 0.45, 0.50, 0.55]
-    subsample_options = [0.55, 0.60, 0.50, 0.45, 0.40]
-    #subsample_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
+    subsample_options = [0.55, 0.60, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
+    # subsample_options = [0.25, 0.01, 0.20, 0.15, 0.10, 0.05]
+    # subsample_options = [0.45]
     # colsample_bytree_options = [0.25, 0.3, 0.35, 0.40, 0.45]
-    # colsample_bytree_options = [0.35, 0.30, 0.25, 0.40, 0.45, 0.50, 0.55]
-    colsample_bytree_options = [0.45, 0.50, 0.55, 0.60, 0.40, 0.35, 0.30]
+    # colsample_bytree_options = [0.45]
+    colsample_bytree_options = [0.45, 0.50, 0.55, 0.60, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
+    # colsample_bytree_options = [0.45]
     mode_options = ['sum']
     # total_models_options = [50, 40, 60]
-    total_models_options = [70]
+    # total_models_options = [70]
+    total_models_options = [30]
     # total_models_selected_options = [10, 9, 8, 7]
     # total_models_selected_options = [20, 25, 30]
-    total_models_selected_options = [40, 30, 50]
+    # total_models_selected_options = [40, 30, 50]
+    total_models_selected_options = [20]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
     # min_trees_options = [5, 15, 30, 50]
     # min_trees_options = [10, 20, 30]
     # min_trees_options = [20, 30, 40, 50]
-    # min_trees_options = [10, 20, 30, 50]
-    min_trees_options = [10, 5, 30, 50]
+    min_trees_options = [1, 5, 10, 20, 30]
+    # min_trees_options = [10, 5, 30, 50]
 
     factor_weight_options = [1, 3, 5, 10]
 
-    def from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight):
+
+    def from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight,threshold_prob_bet,features_select):
         return {
             "duration_train_matches": duration_train_matches,
             "duration_val_matches": duration_val_matches,
@@ -218,7 +252,9 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
             "total_models": total_models,
             "total_models_selected": total_models_selected,
             "min_trees": min_trees,
-            "factor_weight": factor_weight
+            # "factor_weight": factor_weight,
+            "threshold_prob_bet": threshold_prob_bet,
+            "features_select":features_select
         }
 
 
@@ -242,8 +278,10 @@ while data.Date.iloc[test_beginning_match] < data.Date.iloc[-1]:
         total_models_selected = random.choice(total_models_selected_options)
         min_trees = random.choice(min_trees_options)
         factor_weight = random.choice(factor_weight_options)
+        threshold_prob_bet = random.choice(threshold_prob_bet_options)
+        features_select = random.choice(features_select_options)
 
-        config = from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight)
+        config = from_values_to_config(duration_train_matches,duration_val_matches,list_thresholds,learning_rate,max_depth,subsample,colsample_bytree,early_stop,total_models,total_models_selected,min_trees,factor_weight,threshold_prob_bet,features_select)
         return config
 
 

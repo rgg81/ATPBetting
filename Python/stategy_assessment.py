@@ -177,6 +177,7 @@ def assessStrategyGlobal(test_beginning_match,
                          features,
                          data,
                          list_thresholds,
+                         features_select,
                          model_name="0"):
     """
     Given the id of the first match of the testing set (id=index in the dataframe "data"),
@@ -202,7 +203,8 @@ def assessStrategyGlobal(test_beginning_match,
     beg_val=beg_test-duration_val_matches
     end_train=beg_val-1
     beg_train=beg_val-duration_train_matches
-       
+    if beg_train < 0:
+        beg_train = 0
     train_indices=range(2*beg_train,2*end_train+2)
     val_indices=range(2*beg_val,2*end_val+2)
     test_indices=range(2*beg_test,2*end_test+2)
@@ -216,37 +218,37 @@ def assessStrategyGlobal(test_beginning_match,
     xval=features.iloc[val_indices,:].reset_index(drop=True)
     xtest=features.iloc[test_indices,:].reset_index(drop=True)
     xtrain=features.iloc[train_indices,:].reset_index(drop=True)
-    ytrain=pd.Series([1,0]*int(len(train_indices)/2))
-    yval=pd.Series([1,0]*int(len(val_indices)/2))
-    ytest=pd.Series([1,0]*int(len(test_indices)/2))
-    
-    # We limit the number of players and tournaments one-hot encoded : we'll keep only the 
-    # players that won the most matches to avoid overfitting and make the process quicker
-    # Biggest players :
-    biggest_players=data.iloc[range(beg_train,end_train),:][["Winner","Loser"]]
-    biggest_players=pd.concat([biggest_players.Winner,biggest_players.Loser],0)
-    biggest_players=list(biggest_players.value_counts().index[:nb_players])
-    player_columns=[el for el in xtrain.columns if el[:6]=="player"]
-    to_drop_players=[el for el in player_columns if el[7:] not in biggest_players]
-    # Biggest Tournaments
-    biggest_tournaments=data.iloc[range(beg_train,end_train),:]["Tournament"]
-    biggest_tournaments=list(biggest_tournaments.value_counts().index[:nb_tournaments])
-    tournament_columns=[el for el in xtrain.columns if el[:10]=="tournament"]
-    to_drop_tournaments=[el for el in tournament_columns if el[11:] not in biggest_tournaments]
-    # We drop smallest Tournaments and players
-    xtrain=xtrain.drop(to_drop_players+to_drop_tournaments,1)
-    xval=xval.drop(to_drop_players+to_drop_tournaments,1)
-    xtest=xtest.drop(to_drop_players+to_drop_tournaments,1)
+    ytrain=xtrain['label0']
+    yval=xval['label0']
+    ytest=xtest['label0']
+
+    xtest_copy = xtest.copy(deep=True)
+    # label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el or "duoft" in el or "generalft" in el or "playerft" in el or "cat_feature" in el or "elo" in el]
+
+    label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el]
+    # label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el or "duoft" in el or "cat_feature" in el or "elo" in el]
+    # label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el or "elo" in el]
+    print(f"deleting label columns:{label_columns}")
+    xtrain=xtrain.drop(label_columns,1)
+    xval=xval.drop(label_columns,1)
+    xtest=xtest.drop(label_columns,1)
+
+    if len(list(features_select)) > 0:
+        selected_columns = ["odds"]
+        for a_feature_select in list(features_select):
+            print(f"{[x for x in xtrain.columns if a_feature_select in x]} {a_feature_select} {features_select}")
+            selected_columns+=[x for x in xtrain.columns if a_feature_select in x]
+        # selected_columns = [y for y in xtrain.columns if len(list(filter(lambda x: x in y, features_select))) > 0] + ["odds"]
+        print(f"Selecting columns to use:{selected_columns}")
+        xtrain=xtrain[selected_columns]
+        xval=xval[selected_columns]
+        xtest=xtest[selected_columns]
 
     evals_result = {}
     
     ### ML model training
 
-    print(f"COLUMNS -------")
-    print(len(xtrain.columns), flush=True)
-    # for aColumn in xtrain.columns:
-    #     print(aColumn)
-    # model = None
+    print(f"len columns {len(xtrain.columns)} columns {list(xtrain.columns)}", flush=True)
 
     model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
@@ -261,6 +263,25 @@ def assessStrategyGlobal(test_beginning_match,
     preds_test_argmax = [0 if x < 0.50 else 1 for x in pred_test]
 
     pred_test_iteration = fix_prob_thresholds(preds_test_argmax, pred_test, threshold)
+
+    # total_good = 0
+    # total_bad = 0
+    # profit = 0
+    # profit_amount = 100
+    # for row_id in range(len(xtest_copy)):
+    #     row = xtest_copy.iloc[row_id]
+    #     row_data = data[data['matchid'] == row['matchid0']].iloc[0]
+    #     pred_test_value = pred_test_iteration[row_id]
+    #     label_row = row['label0']
+    #     a_odd = row['odds']
+    #     if pred_test_value == 1 and label_row == 1:
+    #         total_good+=1
+    #         profit += (a_odd - 1) * profit_amount
+    #     elif pred_test_value == 1 and label_row == 0:
+    #         total_bad+=1
+    #         profit -= profit_amount
+    #     print(f"Date:{row_data.Date} Winner:{row_data.Winner} Loser:{row_data.Loser} Odds:{row['odds']} Label:{row['label0']} Predicted:{pred_test_value} {'Good' if label_row == pred_test_value or pred_test_value == 0 else 'Bad'} Tournament:{row_data['Tournament']} Round:{row_data['Round']}")
+    # print(f"total good:{total_good} total bad:{total_bad} profit:{profit}")
 
     cm = confusion_matrix(ytest, pred_test_iteration)
     print(cm)
@@ -288,7 +309,7 @@ def find_class_more_voted(all_votes):
     return result
 
 
-def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, total_models=20,total_models_selected=10, mode='max'):
+def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold,features_select, total_models=20,total_models_selected=10, mode='max'):
     """
     The ROI is very sensistive to the training set. A few more matches in the training set can
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
@@ -301,9 +322,9 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     """
     profits_matches = []
     bet_value = 100
-
-    params_starmap = [(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, str(a_model)) for a_model in range(total_models)]
-    with Pool(cpu_count()-1) as pool:
+    params_starmap = [(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, features_select, str(a_model)) for a_model in range(total_models)]
+    # with Pool(cpu_count()-1) as pool:
+    with Pool(1) as pool:
         profits_matches = pool.starmap(assessStrategyGlobal, params_starmap)
 
     if mode == 'max':
@@ -318,7 +339,7 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
 
         # preds are 0.0 or 1.0 so threshold 0.50
         end_profit,end_matches = find_profit_threshold(profits_matches[0][4],np.array(merged_preds),profits_matches[0][5],0.50)
-
+        #
         print("Selecting {} best val profits:{} end_profit:{} end_matches:{}".format(total_models_selected, [x[:3] for x in profits_matches], end_profit, end_matches))
 
         # print("Selecting {} best val profits:{}".format(total_models_selected, [x[:3] for x in profits_matches]))
