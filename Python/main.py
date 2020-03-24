@@ -49,13 +49,21 @@ data["Loser"] = data["Loser"].apply(lambda x: x.strip())
 data.reset_index(inplace=True)
 data.index.names = ['matchid']
 
-data.to_csv("../Generated Data/atp_data.csv",index=True)
+
 
 ### Elo rankings data
 # Computing of the elo ranking of each player at the beginning of each match.
 elo_rankings = compute_elo_rankings(data)
 data = pd.concat([data,elo_rankings],1)
 
+data.to_csv("../Generated Data/atp_data.csv",index=True)
+
+################################################################################
+######################## Building training set #################################
+################################################################################
+### We'll add some features to the dataset
+
+data=pd.read_csv("../Generated Data/atp_data.csv")
 elo_rankings = data[["elo_winner","elo_loser","proba_elo"]]
 elo_1 = elo_rankings
 elo_2 = elo_1[["elo_loser","elo_winner","proba_elo"]]
@@ -65,12 +73,6 @@ elo_2.index = range(1,2*len(elo_1),2)
 elo_1.index = range(0,2*len(elo_1),2)
 features_elo_ranking = pd.concat([elo_1,elo_2]).sort_index(kind='merge')
 
-################################################################################
-######################## Building training set #################################
-################################################################################
-### We'll add some features to the dataset
-
-data=pd.read_csv("../Generated Data/atp_data.csv")
 data.Date = data.Date.apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
 
 data.reset_index(inplace=True)
