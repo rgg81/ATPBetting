@@ -47,15 +47,11 @@ data["Winner"]= data["Winner"].apply(lambda x: x.strip())
 data["Loser"] = data["Loser"].apply(lambda x: x.strip())
 
 data.reset_index(inplace=True)
-data.index.names = ['matchid']
-
-
-
 ### Elo rankings data
 # Computing of the elo ranking of each player at the beginning of each match.
 elo_rankings = compute_elo_rankings(data)
 data = pd.concat([data,elo_rankings],1)
-
+data.index.names = ['matchid']
 data.to_csv("../Generated Data/atp_data.csv",index=True)
 
 ################################################################################
