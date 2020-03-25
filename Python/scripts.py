@@ -29,14 +29,13 @@ import glob
 
 
 def run_opt(config, start_date_index,index_iteration, optimize=True):
-    global data, stats, total_interval_opts, total_iterations, features
+    global data, stats, total_interval_opts, total_iterations, features, data_copy
 
     threshold_prob_bet = config['threshold_prob_bet']
-
-    data = data[(data['PSW']>threshold_prob_bet)&(data['PSL']>threshold_prob_bet)]
+    data = data_copy[(data_copy['PSW']>threshold_prob_bet)&(data_copy['PSL']>threshold_prob_bet)]
     list_ids = list(data['matchid'].values)
 
-    features = features.loc[features['matchid0'].isin(list_ids)]
+    features = features_copy.loc[features_copy['matchid0'].isin(list_ids)]
 
     print(f"Features odds filtered:{features[-50:]}")
 
@@ -130,13 +129,14 @@ def run_opt(config, start_date_index,index_iteration, optimize=True):
 
 data=pd.read_csv("../Generated Data/atp_data.csv")
 data.Date = data.Date.apply(lambda x:datetime.datetime.strptime(x, '%Y-%m-%d'))
-
+data_copy=data.copy(deep=True)
 # beg = datetime.datetime(2004,1,1)
 
 # indices = data[(data.Date>beg) & (data['PSW']>threshold_prob_bet) & (data['PSL']>threshold_prob_bet)].index
 # indices = data.index
 # data = data.iloc[indices,:].reset_index(drop=True)
 features=pd.read_csv("../Generated Data/atp_data_features.csv")
+features_copy=features.copy(deep=True)
 
 # total_interval_opts = timedelta(days=360)
 total_interval_opts = timedelta(days=120)

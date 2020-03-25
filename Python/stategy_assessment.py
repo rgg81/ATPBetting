@@ -228,7 +228,7 @@ def assessStrategyGlobal(test_beginning_match,
     label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el]
     # label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el or "duoft" in el or "cat_feature" in el or "elo" in el]
     # label_columns=[el for el in xtrain.columns if "label" in el or "matchid" in el or "index" in el or "elo" in el]
-    print(f"deleting label columns:{label_columns}")
+    # print(f"deleting label columns:{label_columns}")
     xtrain=xtrain.drop(label_columns,1)
     xval=xval.drop(label_columns,1)
     xtest=xtest.drop(label_columns,1)
@@ -239,7 +239,7 @@ def assessStrategyGlobal(test_beginning_match,
             print(f"{[x for x in xtrain.columns if a_feature_select in x]} {a_feature_select} {features_select}")
             selected_columns+=[x for x in xtrain.columns if a_feature_select in x]
         # selected_columns = [y for y in xtrain.columns if len(list(filter(lambda x: x in y, features_select))) > 0] + ["odds"]
-        print(f"Selecting columns to use:{selected_columns}")
+        # print(f"Selecting columns to use:{selected_columns}")
         xtrain=xtrain[selected_columns]
         xval=xval[selected_columns]
         xtest=xtest[selected_columns]
@@ -248,7 +248,7 @@ def assessStrategyGlobal(test_beginning_match,
     
     ### ML model training
 
-    print(f"len columns {len(xtrain.columns)} columns {list(xtrain.columns)}", flush=True)
+    # print(f"len columns {len(xtrain.columns)} columns {list(xtrain.columns)}", flush=True)
 
     model=xgbModelBinary(xtrain, ytrain, xval, yval, xtest, ytest, xgb_params, evals_result, list_thresholds, sample_weights=None)
     
