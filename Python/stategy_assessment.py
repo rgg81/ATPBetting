@@ -325,7 +325,7 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     profits_matches = []
     bet_value = 100
     params_starmap = [(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,list_threshold, features_select, str(a_model)) for a_model in range(total_models)]
-    with Pool(cpu_count()-1) as pool:
+    with Pool(max(cpu_count()//3, 1)) as pool:
     # with Pool(1) as pool:
         profits_matches = pool.starmap(assessStrategyGlobal, params_starmap)
 
