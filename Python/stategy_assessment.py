@@ -233,11 +233,13 @@ def assessStrategyGlobal(test_beginning_match,
     xval=xval.drop(label_columns,1)
     xtest=xtest.drop(label_columns,1)
 
-    if len(list(features_select)) > 0:
+    if len(list(features_select)) > 0 and features_select != "all":
         selected_columns = ["odds"]
         for a_feature_select in list(features_select):
-            print(f"{[x for x in xtrain.columns if a_feature_select in x]} {a_feature_select} {features_select}")
-            selected_columns+=[x for x in xtrain.columns if a_feature_select in x]
+            if a_feature_select != "all":
+                print(f"{[x for x in xtrain.columns if a_feature_select in x]} {a_feature_select} {features_select}")
+                selected_columns+=[x for x in xtrain.columns if a_feature_select in x]
+
         # selected_columns = [y for y in xtrain.columns if len(list(filter(lambda x: x in y, features_select))) > 0] + ["odds"]
         # print(f"Selecting columns to use:{selected_columns}")
         xtrain=xtrain[selected_columns]

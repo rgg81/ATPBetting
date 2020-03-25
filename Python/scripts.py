@@ -195,7 +195,8 @@ while test_beginning_match is None or data.Date.iloc[test_beginning_match] < dat
     # threshold_options = [(0.80, 0.60, 0.40)]
     threshold_options = [(0.40, 0.25, 0.10), (0.25, 0.15, 0.10), (0.55, 0.35, 0.20), (0.75, 0.55, 0.40), (0.15, 0.10, 0.05)]
 
-    features_select_options = [(), ("generalft, playerft"), ("elo","cat_feature"), ("playerft","duoft"), ("cat_feature","playerft"), ("elo","playerft"), ("duoft","generalft")]
+    features_select_options = ["all", ("generalft, playerft"), ("elo","cat_feature"), ("playerft","duoft"), ("cat_feature","playerft"), ("elo","playerft"), ("duoft","generalft")]
+    # features_select_options = ["all"]
 
     threshold_prob_bet_options = [1.4, 1.5, 1.6, 1.7]
 
