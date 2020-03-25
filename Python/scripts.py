@@ -196,12 +196,12 @@ while test_beginning_match is None or data.Date.iloc[test_beginning_match] < dat
     threshold_options = [(0.40, 0.25, 0.10), (0.25, 0.15, 0.10), (0.55, 0.35, 0.20), (0.75, 0.55, 0.40), (0.15, 0.10, 0.05)]
 
     features_select_options = [tuple(["all"]),
-                               ("generalft, playerft"),
-                               ("elo","cat_feature"),
-                               ("playerft","duoft"),
-                               ("cat_feature","playerft"),
-                               ("elo","playerft"),
-                               ("duoft","generalft")
+                               tuple(["generalft, playerft"]),
+                               tuple(["elo","cat_feature"]),
+                               tuple(["playerft","duoft"]),
+                               tuple(["cat_feature","playerft"]),
+                               tuple(["elo","playerft"]),
+                               tuple(["duoft","generalft"])
                                ]
     # features_select_options = [tuple(["all"])]
 
