@@ -233,7 +233,7 @@ def assessStrategyGlobal(test_beginning_match,
     xval=xval.drop(label_columns,1)
     xtest=xtest.drop(label_columns,1)
 
-    if len(list(features_select)) > 0 and features_select != "all":
+    if len(list(features_select)) > 0 and features_select != tuple(["all"]):
         selected_columns = ["odds"]
         for a_feature_select in list(features_select):
             if a_feature_select != "all":
