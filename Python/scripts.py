@@ -237,7 +237,7 @@ while test_beginning_match is None or data.Date.iloc[test_beginning_match] < dat
     # total_models_selected_options = [10, 9, 8, 7]
     # total_models_selected_options = [20, 25, 30]
     # total_models_selected_options = [40, 30, 50]
-    total_models_selected_options = [30]
+    total_models_selected_options = [20]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
     # min_trees_options = [5, 15, 30, 50]
