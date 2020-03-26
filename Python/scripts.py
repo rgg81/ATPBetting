@@ -146,7 +146,7 @@ top_pick = 10
 total_repeat = 2
 
 # start_simulation_date = datetime.datetime(2018,1,1)
-start_simulation_date = datetime.datetime(2018,1,1)
+start_simulation_date = datetime.datetime(2017,8,1)
 # test_beginning_match=data[data.Date>=start_simulation_date].index[0]
 test_beginning_match=None
 
@@ -192,41 +192,43 @@ while test_beginning_match is None or data.Date.iloc[test_beginning_match] < dat
     # threshold_options = [(0.02, 0.01),(0.03, 0.02),(0.04, 0.03)]
     # threshold_options = [(0.10, 0.08),(0.15, 0.10),(0.20, 0.15)]
     # threshold_options = [(0.15, 0.10),(0.10, 0.08),(0.08, 0.06),(0.06, 0.04),(0.04, 0.02)]
-    # threshold_options = [(0.80, 0.60, 0.40)]
-    threshold_options = [(0.40, 0.25, 0.10), (0.25, 0.15, 0.10), (0.55, 0.35, 0.20), (0.75, 0.55, 0.40), (0.15, 0.10, 0.05)]
+    threshold_options = [(0.50, 0.40, 0.30),(0.60, 0.50, 0.40),(0.40, 0.30, 0.20)]
+    # threshold_options = [(0.40, 0.25, 0.10), (0.25, 0.15, 0.10), (0.55, 0.35, 0.20), (0.75, 0.55, 0.40), (0.15, 0.10, 0.05)]
 
-    features_select_options = [tuple(["all"]),
-                               tuple(["generalft, playerft"]),
-                               tuple(["elo","cat_feature"]),
-                               tuple(["playerft","duoft"]),
-                               tuple(["cat_feature","playerft"]),
-                               tuple(["elo","playerft"]),
-                               tuple(["duoft","generalft"])
-                               ]
-    # features_select_options = [tuple(["all"])]
+    # features_select_options = [tuple(["all"]),
+    #                            tuple(["generalft, playerft"]),
+    #                            tuple(["elo","cat_feature"]),
+    #                            tuple(["playerft","duoft"]),
+    #                            tuple(["cat_feature","playerft"]),
+    #                            tuple(["elo","playerft"]),
+    #                            tuple(["duoft","generalft"])
+    #                            ]
+    features_select_options = [tuple(["elo","playerft","generalft"])]
 
-    threshold_prob_bet_options = [1.4, 1.5, 1.6, 1.7]
+    # threshold_prob_bet_options = [1.4, 1.5, 1.6, 1.7]
+    threshold_prob_bet_options = [1.79, 1.8]
 
     # learning_rate_options = [0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5]
     # learning_rate_options = [0.35, 0.3, 0.40, 0.45]
     learning_rate_options = [0.35, 0.30, 0.40]
-    # learning_rate_options = [0.35]
+    # learning_rate_options = [0.30]
     # max_depth_options = [8, 9, 10]
     # max_depth_options = [4, 6, 8, 10]
     # max_depth_options = [4, 5, 6, 7, 8, 9, 10]
     # max_depth_options = [6,7,8,9, 10, 11, 12]
-    max_depth_options = [7, 8, 9, 10]
+    # max_depth_options = [7, 8, 9, 10]
+    max_depth_options = [4, 6, 7, 8, 10]
     # early_stopping_rounds_options = [50, 100, 300]
     # early_stopping_rounds_options = [10, 15, 20]
     early_stopping_rounds_options = [10]
     # subsample_options = [0.25, 0.3, 0.35, 0.40, 0.45]
     # subsample_options = [0.35, 0.40, 0.25, 0.40, 0.45, 0.50, 0.55]
-    subsample_options = [0.55, 0.60, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
+    # subsample_options = [0.55, 0.60, 0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
     # subsample_options = [0.25, 0.01, 0.20, 0.15, 0.10, 0.05]
-    # subsample_options = [0.45]
+    subsample_options = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40]
     # colsample_bytree_options = [0.25, 0.3, 0.35, 0.40, 0.45]
-    # colsample_bytree_options = [0.45]
-    colsample_bytree_options = [0.45, 0.50, 0.55, 0.60, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
+    colsample_bytree_options = [0.15, 0.20, 0.25, 0.30, 0.35, 0.40]
+    # colsample_bytree_options = [0.45, 0.50, 0.55, 0.60, 0.40, 0.35, 0.30, 0.25, 0.20, 0.65, 0.70]
     # colsample_bytree_options = [0.45]
     mode_options = ['sum']
     # total_models_options = [50, 40, 60]
@@ -235,14 +237,14 @@ while test_beginning_match is None or data.Date.iloc[test_beginning_match] < dat
     # total_models_selected_options = [10, 9, 8, 7]
     # total_models_selected_options = [20, 25, 30]
     # total_models_selected_options = [40, 30, 50]
-    total_models_selected_options = [20]
+    total_models_selected_options = [30]
     # total_models_options = [5, 7, 10]
     # min_trees_options = [5, 10, 20, 30, 40]
     # min_trees_options = [5, 15, 30, 50]
     # min_trees_options = [10, 20, 30]
     # min_trees_options = [20, 30, 40, 50]
-    min_trees_options = [1, 5, 10, 20, 30]
-    # min_trees_options = [10, 5, 30, 50]
+    # min_trees_options = [1, 5, 10, 20, 30]
+    min_trees_options = [2]
 
     factor_weight_options = [1, 3, 5, 10]
 

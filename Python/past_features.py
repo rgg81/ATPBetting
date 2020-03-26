@@ -79,7 +79,7 @@ def index_match_creation(outcome,match,past_matches):
     ##### Match information extraction (according to the outcome)
     # print(match)
     # print(f"match index{match.index}")
-    return [match['index']]
+    return [match['matchid']]
 
 
 def features_recent_creation(outcome,match,past_matches):
